@@ -8,6 +8,8 @@
 import "github.com/barbell-math/smoothbrain-gnuplot"
 ```
 
+A very simple library that aids in creating plots with gnuplot.
+
 ## Index
 
 - [Variables](<#variables>)
@@ -25,74 +27,92 @@ import "github.com/barbell-math/smoothbrain-gnuplot"
 
 ```go
 var (
+    // The regex that matches strings that need to be replaced in the supplied
+    // cmds. The exact contents of the string found by the regular expression
+    // will determine what it is replaced with.
     OpRegex = regexp.MustCompile("\\${[^{]*}")
 
-    InvalidOpErr    = errors.New("Invalid op")
-    InvalidDatOpErr = errors.New("Invalid dat op")
+    InvalidOpErr       = errors.New("Invalid op")
+    InvalidDatOpErr    = errors.New("Invalid dat op")
+    InvalidDatIndexErr = errors.New("Invalid data index")
 )
 ```
 
 <a name="GnuPlot"></a>
-## type [GnuPlot](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L18-L23>)
+## type [GnuPlot](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L20-L25>)
 
-
+The main struct that is used to control plot generation.
 
 ```go
 type GnuPlot struct {
-    OutFile    string
-    GpltFile   *os.File
-    DatFiles   []*os.File
-    CsvWriters []*csv.Writer
+    // contains filtered or unexported fields
 }
 ```
 
 <a name="NewGnuPlot"></a>
-### func [NewGnuPlot](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L40>)
+### func [NewGnuPlot](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L59>)
 
 ```go
 func NewGnuPlot(opts GnuPlotOpts) (GnuPlot, error)
 ```
 
-
+Creates a new [GnuPlot](<#GnuPlot>) struct with the supplied options. All data and gnu plot code files will be created. The output file will be created by gnu plot itself when the [GnuPlot.Run](<#GnuPlot.Run>) method is called.
 
 <a name="GnuPlot.Cmds"></a>
-### func \(\*GnuPlot\) [Cmds](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L65>)
+### func \(\*GnuPlot\) [Cmds](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L93>)
 
 ```go
 func (g *GnuPlot) Cmds(s ...string) error
 ```
 
+Writes cmds to the gnu plot code file. The cmds will be parsed for operations. An operation will replace the given text with a specific value. Valid operations are as follows:
 
+- \{out\}: Replaces \`\{out\}\` with the path of the out file
+- \{dat:\#\}: Replaces \`\{dat:\#\}\` with the path of the data file at the index specified by \`\#\`. If \`\#\` is not a valid number, a negative number, or a number outside the range of the data file list an error will be returned and none of the supplied cmds will be added
 
 <a name="GnuPlot.DataRow"></a>
-### func \(\*GnuPlot\) [DataRow](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L130>)
+### func \(\*GnuPlot\) [DataRow](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L166>)
 
 ```go
 func (g *GnuPlot) DataRow(file int, data ...string) error
 ```
 
+Writes a data row to the data file specified by the \`file\` index. If the index specified by \`file\` is invalid a [InvalidDatIndexErr](<#OpRegex>) will be returned.
 
+To write an empty line call this method with a single empty string as the data arguments.
+
+If no data arguments are provided no work will be done and no error will be returned.
 
 <a name="GnuPlot.Run"></a>
-### func \(\*GnuPlot\) [Run](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L134>)
+### func \(\*GnuPlot\) [Run](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L183>)
 
 ```go
 func (g *GnuPlot) Run(ctxt context.Context) error
 ```
 
-
+Flushes all writers and executes gnuplot with the generated gnu plot code and data files. All open files are closed so the gnuplot object should not be used after calling this method.
 
 <a name="GnuPlotOpts"></a>
-## type [GnuPlotOpts](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L25-L30>)
+## type [GnuPlotOpts](<https://github.com/barbell-math/smoothbrain-gnuplot/blob/main/gnuplot.go#L27-L42>)
 
 
 
 ```go
 type GnuPlotOpts struct {
+    // Specifies the file where the generated gnuplot code will go. This
+    // path will be relative to the current directory.
     GpltFile string
+    // Specifies the files where the data for the plot will be written to.
+    // The order of the files matters because methods on [GnuPlot] will
+    // reference a data file by index.
+    // All paths will be relative to the current directory.
     DatFiles []string
-    OutFile  string
-    CsvSep   rune
+    // Specifies the file where the generated plot will be written to. This
+    // path will be relative to the current directory.
+    OutFile string
+    // The column delimiter character that should be used when writing the
+    // data to the dat files.
+    CsvSep rune
 }
 ```
 

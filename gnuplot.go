@@ -1,3 +1,4 @@
+// A very simple library that aids in creating plots with gnuplot.
 package sbgnuplot
 
 import (
@@ -6,37 +7,55 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 
-	sbbs "github.com/barbell-math/smoothbrain-bs"
 	sberr "github.com/barbell-math/smoothbrain-errs"
 )
 
 type (
+	// The main struct that is used to control plot generation.
 	GnuPlot struct {
-		OutFile    string
-		GpltFile   *os.File
-		DatFiles   []*os.File
-		CsvWriters []*csv.Writer
+		outFile    string
+		gpltFile   *os.File
+		datFiles   []*os.File
+		csvWriters []*csv.Writer
 	}
 
 	GnuPlotOpts struct {
+		// Specifies the file where the generated gnuplot code will go. This
+		// path will be relative to the current directory.
 		GpltFile string
+		// Specifies the files where the data for the plot will be written to.
+		// The order of the files matters because methods on [GnuPlot] will
+		// reference a data file by index.
+		// All paths will be relative to the current directory.
 		DatFiles []string
-		OutFile  string
-		CsvSep   rune
+		// Specifies the file where the generated plot will be written to. This
+		// path will be relative to the current directory.
+		OutFile string
+		// The column delimiter character that should be used when writing the
+		// data to the dat files.
+		CsvSep rune
 	}
 )
 
 var (
+	// The regex that matches strings that need to be replaced in the supplied
+	// cmds. The exact contents of the string found by the regular expression
+	// will determine what it is replaced with.
 	OpRegex = regexp.MustCompile("\\${[^{]*}")
 
-	InvalidOpErr    = errors.New("Invalid op")
-	InvalidDatOpErr = errors.New("Invalid dat op")
+	InvalidOpErr       = errors.New("Invalid op")
+	InvalidDatOpErr    = errors.New("Invalid dat op")
+	InvalidDatIndexErr = errors.New("Invalid data index")
 )
 
+// Creates a new [GnuPlot] struct with the supplied options. All data and gnu
+// plot code files will be created. The output file will be created by gnu plot
+// itself when the [GnuPlot.Run] method is called.
 func NewGnuPlot(opts GnuPlotOpts) (GnuPlot, error) {
 	gFile, err := os.Create(opts.GpltFile + ".gplt")
 	if err != nil {
@@ -55,20 +74,29 @@ func NewGnuPlot(opts GnuPlotOpts) (GnuPlot, error) {
 	}
 
 	return GnuPlot{
-		OutFile:    opts.OutFile,
-		GpltFile:   gFile,
-		DatFiles:   datFiles,
-		CsvWriters: csvWriters,
+		outFile:    opts.OutFile,
+		gpltFile:   gFile,
+		datFiles:   datFiles,
+		csvWriters: csvWriters,
 	}, nil
 }
 
+// Writes cmds to the gnu plot code file. The cmds will be parsed for
+// operations. An operation will replace the given text with a specific value.
+// Valid operations are as follows:
+//
+//   - {out}: Replaces `{out}` with the path of the out file
+//   - {dat:#}: Replaces `{dat:#}` with the path of the data file at the index
+//     specified by `#`. If `#` is not a valid number, a negative number, or
+//     a number outside the range of the data file list an error will be
+//     returned and none of the supplied cmds will be added
 func (g *GnuPlot) Cmds(s ...string) error {
 	for _, iterS := range s {
 		if resolved, err := g.getResolvedCmd(iterS); err != nil {
 			return err
 		} else {
-			g.GpltFile.WriteString(resolved)
-			g.GpltFile.WriteString("\n")
+			g.gpltFile.WriteString(resolved)
+			g.gpltFile.WriteString("\n")
 		}
 	}
 	return nil
@@ -105,17 +133,17 @@ func (g *GnuPlot) getResolvedCmd(cmd string) (string, error) {
 					),
 				)
 			}
-			if idx < 0 || idx >= len(g.DatFiles) {
+			if idx < 0 || idx >= len(g.datFiles) {
 				return resolved, sberr.Wrap(
-					InvalidDatOpErr,
+					InvalidDatIndexErr,
 					"Dat file index out of range: Got: %d Allowed Range: [0, %d)",
-					idx, len(g.DatFiles),
+					idx, len(g.datFiles),
 				)
 			}
-			resolved += fmt.Sprintf("'%s'", g.DatFiles[idx].Name())
+			resolved += fmt.Sprintf("'%s'", g.datFiles[idx].Name())
 			prevIndex = op[1]
 		case "out":
-			resolved += fmt.Sprintf("'%s'", g.OutFile)
+			resolved += fmt.Sprintf("'%s'", g.outFile)
 			prevIndex = op[1]
 		default:
 			return resolved, sberr.Wrap(InvalidOpErr, "Got: %s", splitSubStr)
@@ -127,16 +155,47 @@ func (g *GnuPlot) getResolvedCmd(cmd string) (string, error) {
 	return resolved, nil
 }
 
+// Writes a data row to the data file specified by the `file` index. If the
+// index specified by `file` is invalid a [InvalidDatIndexErr] will be returned.
+//
+// To write an empty line call this method with a single empty string as the
+// data arguments.
+//
+// If no data arguments are provided no work will be done and no error will be
+// returned.
 func (g *GnuPlot) DataRow(file int, data ...string) error {
-	return g.CsvWriters[file].Write(data)
+	if len(data) <= 0 {
+		return nil
+	}
+	if file < 0 || file >= len(g.csvWriters) {
+		return sberr.Wrap(
+			InvalidDatIndexErr,
+			"Dat file index out of range: Got: %d Allowed Range: [0, %d)",
+			file, len(g.csvWriters),
+		)
+	}
+	return g.csvWriters[file].Write(data)
 }
 
+// Flushes all writers and executes gnuplot with the generated gnu plot code and
+// data files. All open files are closed so the gnuplot object should not be
+// used after calling this method.
 func (g *GnuPlot) Run(ctxt context.Context) error {
-	for i := range len(g.DatFiles) {
-		g.CsvWriters[i].Flush()
-		g.DatFiles[i].Close()
+	for i := range len(g.datFiles) {
+		g.csvWriters[i].Flush()
+		g.datFiles[i].Close()
 	}
-	g.GpltFile.Close()
+	g.gpltFile.Close()
 
-	return sbbs.RunStdout(ctxt, "gnuplot", "-c", g.GpltFile.Name())
+	var cmd *exec.Cmd
+	cmd = exec.CommandContext(ctxt, "gnuplot", "-c", g.gpltFile.Name())
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
