@@ -1,4 +1,4 @@
-package bsgnuplot
+package sbgnuplot
 
 import (
 	"context"
