@@ -1,6 +1,6 @@
 github.com/barbell-math/smoothbrain-bs v0.0.0-20250723065839-bed764397213 h1:h8sQtjgXFIQsTgJ5Tx85K9xv0SY7VcUM3LQoznkp9d0=
 github.com/barbell-math/smoothbrain-bs v0.0.0-20250723065839-bed764397213/go.mod h1:FQWW2l1VFXaivWjczddZ565lW7JijYX9ox/lyA0rEBg=
-github.com/barbell-math/smoothbrain-errs v0.0.0-20250723070428-fd86bcc11533 h1:YCYoS4zl2rSNIc8UvZheurl0fNk0HJeLD/XUlkt54UA=
-github.com/barbell-math/smoothbrain-errs v0.0.0-20250723070428-fd86bcc11533/go.mod h1:qFxFp0tLTTecRCTZ/WrrDAZ1q7npo+56UBmCYiRqsuQ=
-github.com/barbell-math/smoothbrain-test v0.0.0-20250723070109-ff7cc4fb999d h1:9K0LuCdkV+KP5DpIEo96i1GLFbda9t6Vv2Kcpj9cZbc=
-github.com/barbell-math/smoothbrain-test v0.0.0-20250723070109-ff7cc4fb999d/go.mod h1:D5i1/BkXkkHNWBigLQ3ywhRBQvUDR5i4nnkDCzopX/8=
+github.com/barbell-math/smoothbrain-errs v0.0.0-20250803193132-d7f7893b8d80 h1:I1DHZvsrnq9mPykxlW+ffmp8tOsvxILo/3holU+t6l8=
+github.com/barbell-math/smoothbrain-errs v0.0.0-20250803193132-d7f7893b8d80/go.mod h1:Q4yP+dmGVquI7oA/5hB6oDsYbYrfIDwVoWXlp1NezrY=
+github.com/barbell-math/smoothbrain-test v0.0.0-20250803193045-0a30be41bb31 h1:DeYEJIFadtYc02wEV3IZ9Ft98tpmZ/92dfLXcVCO6lY=
+github.com/barbell-math/smoothbrain-test v0.0.0-20250803193045-0a30be41bb31/go.mod h1:D5i1/BkXkkHNWBigLQ3ywhRBQvUDR5i4nnkDCzopX/8=
